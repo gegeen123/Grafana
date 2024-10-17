@@ -1,64 +1,41 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+#!/bin/bash
+set -x
 
-## Getting Started
+# Update the instance
+yum update -y
 
-First, run the development server:
+# Install Docker
+amazon-linux-extras install docker -y
+service docker start
+systemctl enable docker
+usermod -a -G docker ec2-user
+chmod 666 /var/run/docker.sock
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+# Install Docker Compose
+DOCKER_CONFIG=${DOCKER_CONFIG:-/home/ec2-user/.docker}
+mkdir -p $DOCKER_CONFIG/cli-plugins
+curl -SL https://github.com/docker/compose/releases/download/v2.29.1/docker-compose-$(uname -s)-$(uname -m) -o $DOCKER_CONFIG/cli-plugins/docker-compose
+chmod +x $DOCKER_CONFIG/cli-plugins/docker-compose
+chown -R ec2-user:ec2-user $DOCKER_CONFIG
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+# Install Git
+yum install git -y
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+# Clone your GitHub repository (replace <your-repo-url> with your actual GitHub repo URL)
+sudo -u ec2-user git clone https://github.com/gegeen123/grafanaDashboard.git /home/ec2-user/app
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
-
-## Start Project
-
-```bash
-docker network create my-custom-network
-
-docker build -t my-nextjs-app
-
-docker run -it --rm -p 3000:3000 --network my-custom-network --name my-app -v /เปลี่ยนที่อยู่:/app my-nextjs-app
-
-docker-compose up
-```
-
-### Start EC2
-
-```bash
-sudo -u ec2-user git clone https://github.com/kathorn49/docker-next.git /home/ec2-user/app
-
+# Change to the directory containing the Docker Compose file
 cd /home/ec2-user/app
 
+# Run Docker Compose as ec2-user
 sudo -u ec2-user docker compose up -d
 
-sudo -u ec2-user docker compose down
+# Create /etc/rc.local to ensure Docker Compose runs on reboot
+cat <<EOF | sudo tee /etc/rc.local
+#!/bin/bash
+cd /home/ec2-user/app
+sudo -u ec2-user docker compose up -d
+EOF
 
-cd /home/ec2-user
-
-rm -rf app
-```
+# Make /etc/rc.local executable
+sudo chmod +x /etc/rc.local
